@@ -1,28 +1,117 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Chat UI</title>
+<style>
+body {
+    margin:0;
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg,#0f172a,#1e293b);
+    color:white;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+.container {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(20px);
+    padding:30px;
+    border-radius:20px;
+    width:300px;
+    text-align:center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+h2 {
+    margin-bottom:20px;
+}
+
+button {
+    border:none;
+    padding:15px;
+    border-radius:50px;
+    width:100%;
+    font-size:16px;
+    cursor:pointer;
+    margin-top:10px;
+    transition:0.3s;
+}
+
+#startBtn {
+    background:#22c55e;
+    color:white;
+}
+
+#startBtn:hover {
+    background:#16a34a;
+}
+
+#stopBtn {
+    background:#ef4444;
+    color:white;
+}
+
+#stopBtn:hover {
+    background:#dc2626;
+}
+
+.status {
+    margin-top:15px;
+    font-size:14px;
+    opacity:0.8;
+}
+
+.wave {
+    margin-top:20px;
+    height:10px;
+    background:linear-gradient(90deg,#22c55e,#3b82f6,#a855f7);
+    border-radius:10px;
+    animation: wave 1s infinite ease-in-out;
+    display:none;
+}
+
+@keyframes wave {
+    0%{transform:scaleX(0.3);}    
+    50%{transform:scaleX(1);}    
+    100%{transform:scaleX(0.3);}    
+}
+</style>
+</head>
 <body>
-<h2>Voice Chat</h2>
-<button onclick="startMic()">🎤 เริ่มพูด</button>
+
+<div class="container">
+    <h2>🎤 Voice Chat</h2>
+    <button id="startBtn" onclick="startMic()">เริ่มพูด</button>
+    <button id="stopBtn" onclick="stopMic()">หยุด</button>
+    <div class="wave" id="wave"></div>
+    <div class="status" id="status">ยังไม่ได้เชื่อมต่อ</div>
+</div>
 
 <script>
 let ws = new WebSocket("ws://localhost:3000");
+let recorder;
+let stream;
 
-let pos = {x:0,y:0,z:0};
+ws.onopen = ()=>{
+    document.getElementById("status").innerText = "เชื่อมต่อแล้ว";
+}
 
-// 🎮 ส่งตำแหน่งทุก 1 วิ
-setInterval(()=>{
-    ws.send(JSON.stringify({
-        type:"pos",
-        x: pos.x,
-        y: pos.y,
-        z: pos.z
-    }));
-},1000);
+ws.onmessage = (msg)=>{
+    let data = JSON.parse(msg.data);
+    if(data.type === "voice"){
+        let audio = new Audio(data.audio);
+        audio.volume = data.volume;
+        audio.play();
+    }
+}
 
-// 🎤 เปิดไมค์
 async function startMic(){
-    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-    const recorder = new MediaRecorder(stream);
+    stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    recorder = new MediaRecorder(stream);
 
     recorder.ondataavailable = e => {
         const reader = new FileReader();
@@ -36,18 +125,21 @@ async function startMic(){
     };
 
     recorder.start(200);
+
+    document.getElementById("status").innerText = "กำลังพูด...";
+    document.getElementById("wave").style.display = "block";
 }
 
-// 🔊 รับเสียง
-ws.onmessage = (msg)=>{
-    let data = JSON.parse(msg.data);
-
-    if(data.type === "voice"){
-        let audio = new Audio(data.audio);
-        audio.volume = data.volume;
-        audio.play();
+function stopMic(){
+    if(recorder){
+        recorder.stop();
+        stream.getTracks().forEach(t=>t.stop());
     }
-};
+
+    document.getElementById("status").innerText = "หยุดแล้ว";
+    document.getElementById("wave").style.display = "none";
+}
 </script>
+
 </body>
 </html>
